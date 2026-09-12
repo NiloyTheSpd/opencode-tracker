@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons
@@ -20,12 +21,6 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool alarming: service.go ? Model.behindPace(
     Model.normalizeWindow(service.go.weekly, "weekly", nowMs), nowMs) : false
-  readonly property string barText: {
-    if (!service.providers.length) return "OpenCode · —"
-    var goWeekly = service.go ? Model.normalizeWindow(service.go.weekly, "weekly", nowMs) : null
-    if (goWeekly) return "OpenCode · " + Model.percent(goWeekly.percent)
-    return "OpenCode · " + Model.dollars(Model.weekCost(service.providers)) + "/wk"
-  }
   readonly property int modelCount: {
     var total = 0
     var list = service.providers || []
@@ -105,14 +100,22 @@ Panel {
         }
       }
 
-      Text {
-        visible: !(bar ? bar.vertical : false)
+      Image {
+        id: logo
         anchors.verticalCenter: parent.verticalCenter
-        text: root.barText
-        color: root.alarming ? root.urgent : root.foreground
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-        font.bold: true
+        source: "opencode.svg"
+        width: Style.space(16)
+        height: Style.space(16)
+        fillMode: Image.PreserveAspectFit
+        mipmap: true
+        visible: false
+      }
+
+      MultiEffect {
+        anchors.fill: logo
+        source: logo
+        colorization: 1.0
+        colorizationColor: root.alarming ? root.urgent : root.foreground
       }
     }
   }
