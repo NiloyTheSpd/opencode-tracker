@@ -11,13 +11,13 @@ Plugin ID: `io.github.thespd.opencode-tracker`
 
 Clone the repository into your Omarchy plugin directory and enable it:
 
-    omarchy plugin add https://github.com/thespd/opencode-tracker
+    omarchy plugin add https://github.com/NiloyTheSPD/opencode-tracker
 
 The command validates the plugin, enables it, and asks which bar section to
 place the widget in (default: right). For a non-interactive install that
 enables the widget with the default section:
 
-    omarchy plugin add https://github.com/thespd/opencode-tracker --enable --yes
+    omarchy plugin add https://github.com/NiloyTheSPD/opencode-tracker --enable --yes
 
 ## Remove
 
