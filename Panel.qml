@@ -567,7 +567,8 @@ Panel {
             color: Util.alpha(root.foreground, 0.14)
 
             Rectangle {
-              width: parent.width * providerCard.share
+              // Minimum fill so low-volume providers (e.g. 19K vs 479M tokens) stay visible.
+              width: parent.width * (providerCard.share > 0 ? Math.max(providerCard.share, 0.025) : 0)
               height: parent.height
               radius: parent.radius
               gradient: Gradient {

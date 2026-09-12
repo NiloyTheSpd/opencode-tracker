@@ -7,7 +7,8 @@ var MONTHLY_MS = 30 * 24 * 60 * 60 * 1000
 var PROVIDER_LABELS = {
   "opencode": "Zen",
   "opencode-go": "Go",
-  "amazon-bedrock": "Bedrock"
+  "amazon-bedrock": "Bedrock",
+  "openrouter": "OpenRouter"
 }
 
 function label(id) {
