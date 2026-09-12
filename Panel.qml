@@ -104,8 +104,10 @@ Panel {
         id: logo
         anchors.verticalCenter: parent.verticalCenter
         source: "opencode.svg"
-        width: Style.space(16)
-        height: Style.space(16)
+        // Wide wordmark (641:115 aspect) — fix height, derive width.
+        readonly property real logoH: Style.space(14)
+        width: Math.round(logoH * 641 / 115)
+        height: logoH
         fillMode: Image.PreserveAspectFit
         mipmap: true
         visible: false
