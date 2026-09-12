@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons
@@ -100,28 +99,14 @@ Panel {
         }
       }
 
-      Image {
-        id: logo
+      Text {
+        visible: !(bar ? bar.vertical : false)
         anchors.verticalCenter: parent.verticalCenter
-        source: "opencode.svg"
-        // Wide wordmark (641:115 aspect) — fix height, derive width.
-        // smooth:false keeps the pixel-art edges crisp at bar size.
-        readonly property real logoH: Style.space(15)
-        width: Math.round(logoH * 641 / 115)
-        height: logoH
-        sourceSize.width: width
-        sourceSize.height: height
-        fillMode: Image.PreserveAspectFit
-        smooth: false
-        mipmap: false
-        visible: false
-      }
-
-      MultiEffect {
-        anchors.fill: logo
-        source: logo
-        colorization: 1.0
-        colorizationColor: root.alarming ? root.urgent : root.foreground
+        text: "OpenCode"
+        color: root.alarming ? root.urgent : root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
       }
     }
   }
