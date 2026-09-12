@@ -18,8 +18,8 @@ Plugin ID is `io.github.thespd.opencode-tracker` — `manifest.json` `id`, `Pane
 bash -n collector.sh
 qmllint Panel.qml Service.qml
 ./collector.sh | jq .              # works with missing DB/auth; check .status/.go.status
-# The install dir is a plain copy, not a symlink — sync files before rescanning:
-cp AGENTS.md collector.sh LICENSE manifest.json Model.js opencode.svg Panel.qml preview.png README.md Service.qml ~/.config/omarchy/plugins/io.github.thespd.opencode-tracker/
+# The install dir is a symlink to this repo, so edits go live on rescan (no copy step):
+ls -la ~/.config/omarchy/plugins/ | grep opencode-tracker  # must show `-> /home/thespd/Work/opencode-tracker`
 omarchy-shell shell rescanPlugins  # re-discovers plugins; if the open panel still shows old UI, `omarchy restart shell` (rescan doesn't always reload a running panel component)
 ```
 
