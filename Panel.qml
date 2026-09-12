@@ -105,11 +105,15 @@ Panel {
         anchors.verticalCenter: parent.verticalCenter
         source: "opencode.svg"
         // Wide wordmark (641:115 aspect) — fix height, derive width.
-        readonly property real logoH: Style.space(14)
+        // smooth:false keeps the pixel-art edges crisp at bar size.
+        readonly property real logoH: Style.space(15)
         width: Math.round(logoH * 641 / 115)
         height: logoH
+        sourceSize.width: width
+        sourceSize.height: height
         fillMode: Image.PreserveAspectFit
-        mipmap: true
+        smooth: false
+        mipmap: false
         visible: false
       }
 
