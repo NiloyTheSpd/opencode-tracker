@@ -39,6 +39,17 @@ Item {
     triggeredOnStart: true
     onTriggered: root.refresh()
   }
+  // Safety net: a hung collector must never wedge the widget in "Refreshing…".
+  Timer {
+    interval: 30000
+    repeat: true
+    running: root.refreshing
+    onTriggered: {
+      collector.running = false
+      root.refreshing = false
+      root.lastError = "Collector timed out"
+    }
+  }
   Process {
     id: collector
     command: []

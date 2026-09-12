@@ -1,29 +1,29 @@
-# omarchy-plugin-opencode-usage
+# opencode-tracker
 
 OpenCode usage widget for the Omarchy shell (Quickshell): token and cost
 usage per configured provider (Zen, Go, Bedrock, ...) from the local
 opencode.db, daily per-model breakdowns for the last 7 days, and OpenCode
 Go limit windows via the go/v1/usage API.
 
-Plugin ID: `io.github.dahep.opencode-usage`
+Plugin ID: `io.github.thespd.opencode-tracker`
 
 ## Install
 
 Clone the repository into your Omarchy plugin directory and enable it:
 
-    omarchy plugin add https://github.com/Dahep/omarchy-plugin-opencode-usage
+    omarchy plugin add https://github.com/thespd/opencode-tracker
 
 The command validates the plugin, enables it, and asks which bar section to
 place the widget in (default: right). For a non-interactive install that
 enables the widget with the default section:
 
-    omarchy plugin add https://github.com/Dahep/omarchy-plugin-opencode-usage --enable --yes
+    omarchy plugin add https://github.com/thespd/opencode-tracker --enable --yes
 
 ## Remove
 
 Removes the plugin files and takes the bar widget with it:
 
-    omarchy plugin remove io.github.dahep.opencode-usage
+    omarchy plugin remove io.github.thespd.opencode-tracker
 
 
 ## Dependencies
