@@ -18,6 +18,8 @@ Plugin ID is `io.github.thespd.opencode-tracker` — `manifest.json` `id`, `Pane
 bash -n collector.sh
 qmllint Panel.qml Service.qml
 ./collector.sh | jq .              # works with missing DB/auth; check .status/.go.status
+# The install dir is a plain copy, not a symlink — sync files before rescanning:
+cp AGENTS.md collector.sh LICENSE manifest.json Model.js opencode.svg Panel.qml preview.png README.md Service.qml ~/.config/omarchy/plugins/io.github.thespd.opencode-tracker/
 omarchy-shell shell rescanPlugins  # re-discovers plugins; if the open panel still shows old UI, `omarchy restart shell` (rescan doesn't always reload a running panel component)
 ```
 
@@ -37,6 +39,12 @@ node -e "const M=require('/tmp/opencode/Model.test.js'); console.log(M.tokenCoun
 - Keep all `jq` output compact (`-c` / `-cn`): `Service.qml` parses stdout as a single JSON document.
 - Dep failures (`jq`/`sqlite3` missing) exit 1 with stderr; `Service.qml` shows stderr truncated to 180 chars on nonzero exit — errors to stderr, data to stdout.
 - `set -uo pipefail` is on; the `curl | head -c` section intentionally disables/re-enables `pipefail` and reads `PIPESTATUS[0]` — don't "simplify" it.
+
+## Panel rules
+
+- Providers render dynamically from `service.providers` (grouped by DB `providerID`) — no hardcoded list. Unknown IDs fall back to the raw string in `Model.label`; add pretty names to `PROVIDER_LABELS`.
+- Each provider card shows only the top 3 models by weekly tokens (`topN`) with a "Show N more" expander (`showAllModels`) — never render the full list inline.
+- The share bar keeps a 2.5% minimum fill for nonzero share so low-volume providers stay visible — don't "simplify" it to raw `share`.
 
 ## Model.js contract
 
