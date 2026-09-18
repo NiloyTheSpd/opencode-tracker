@@ -16,10 +16,15 @@ Panel {
   readonly property int dayCount: Math.max(1, service.recentDays.length)
   readonly property color foreground: bar ? bar.barForeground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
+  // No green in the shell palette, so the healthy state carries its own.
+  readonly property color ok: "#6fbf73"
   readonly property color dim: Qt.darker(foreground, 1.35)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool alarming: service.go ? Model.behindPace(
     Model.normalizeWindow(service.go.weekly, "weekly", nowMs), nowMs) : false
+  // Green dot: usage is flowing and nothing is alarming. Stays grey while
+  // there is no provider data yet (fresh install, error, still loading).
+  readonly property bool healthy: !root.alarming && service.providers.length > 0
   readonly property int modelCount: {
     var total = 0
     var list = service.providers || []
@@ -86,8 +91,8 @@ Panel {
         width: Style.space(6)
         height: Style.space(6)
         radius: width / 2
-        color: root.alarming ? root.urgent : root.foreground
-        opacity: root.alarming ? 1 : 0.55
+        color: root.alarming ? root.urgent : (root.healthy ? root.ok : root.foreground)
+        opacity: (root.alarming || root.healthy) ? 1 : 0.55
 
         SequentialAnimation on opacity {
           id: dotPulse
@@ -95,7 +100,7 @@ Panel {
           running: service.refreshing
           NumberAnimation { to: 0.25; duration: 450; easing.type: Easing.InOutQuad }
           NumberAnimation { to: 1; duration: 450; easing.type: Easing.InOutQuad }
-          onRunningChanged: if (!running) statusDot.opacity = root.alarming ? 1 : 0.55
+          onRunningChanged: if (!running) statusDot.opacity = (root.alarming || root.healthy) ? 1 : 0.55
         }
       }
 
