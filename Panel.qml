@@ -22,9 +22,20 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool alarming: service.go ? Model.behindPace(
     Model.normalizeWindow(service.go.weekly, "weekly", nowMs), nowMs) : false
-  // Green dot: usage is flowing and nothing is alarming. Stays grey while
-  // there is no provider data yet (fresh install, error, still loading).
-  readonly property bool healthy: !root.alarming && service.providers.length > 0
+  // User-set weekly budget in USD (0 = off). Red dot when spent past it.
+  readonly property int budgetDollars: {
+    var raw = settings ? settings["weeklyBudgetDollars"] : undefined
+    var value = parseInt(String(raw === undefined || raw === null ? 0 : raw), 10)
+    if (!isFinite(value) || value < 0) value = 0
+    return value
+  }
+  readonly property real weekCostDollars: Model.weekCost(service.providers)
+  readonly property bool overBudget: root.budgetDollars > 0 && root.weekCostDollars > root.budgetDollars
+  // Any red state: over budget or behind Go pace.
+  readonly property bool alerting: root.overBudget || root.alarming
+  // Green dot: tokens flowed today and nothing is wrong. Stays grey while
+  // idle (fresh install, error, still loading, or nothing used today).
+  readonly property bool healthy: !root.alerting && Model.todayTokens(service.recentDays) > 0
   readonly property int modelCount: {
     var total = 0
     var list = service.providers || []
@@ -72,8 +83,12 @@ Panel {
     bar: root.bar
     text: " "
     fixedWidth: vertical ? -1 : content.implicitWidth + Style.space(16)
-    tooltipText: "OpenCode provider usage · click for details" + (service.lastError ? "\n" + service.lastError : "")
-    active: root.alarming
+    tooltipText: "OpenCode provider usage · click for details"
+      + (service.lastError ? "\n" + service.lastError : "")
+      + (root.budgetDollars > 0 ? "\n" + (root.overBudget
+        ? "Over weekly budget (" + Model.dollars(root.weekCostDollars) + " of " + Model.dollars(root.budgetDollars) + ")"
+        : Model.dollars(root.weekCostDollars) + " of " + Model.dollars(root.budgetDollars) + " weekly budget") : "")
+    active: root.alerting
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton || buttonCode === Qt.MiddleButton) root.refresh()
       else root.toggle()
@@ -91,8 +106,8 @@ Panel {
         width: Style.space(6)
         height: Style.space(6)
         radius: width / 2
-        color: root.alarming ? root.urgent : (root.healthy ? root.ok : root.foreground)
-        opacity: (root.alarming || root.healthy) ? 1 : 0.55
+        color: root.alerting ? root.urgent : (root.healthy ? root.ok : root.foreground)
+        opacity: (root.alerting || root.healthy) ? 1 : 0.55
 
         SequentialAnimation on opacity {
           id: dotPulse
@@ -100,7 +115,7 @@ Panel {
           running: service.refreshing
           NumberAnimation { to: 0.25; duration: 450; easing.type: Easing.InOutQuad }
           NumberAnimation { to: 1; duration: 450; easing.type: Easing.InOutQuad }
-          onRunningChanged: if (!running) statusDot.opacity = (root.alarming || root.healthy) ? 1 : 0.55
+          onRunningChanged: if (!running) statusDot.opacity = (root.alerting || root.healthy) ? 1 : 0.55
         }
       }
 
@@ -108,7 +123,7 @@ Panel {
         visible: !(bar ? bar.vertical : false)
         anchors.verticalCenter: parent.verticalCenter
         text: "OpenCode"
-        color: root.alarming ? root.urgent : root.foreground
+        color: root.alerting ? root.urgent : root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
@@ -256,6 +271,55 @@ Panel {
           }
 
           PanelSeparator { width: parent.width; foreground: root.foreground; visible: service.providers.length > 0 }
+
+          Column {
+            visible: root.budgetDollars > 0
+            width: parent.width
+            spacing: Style.space(6)
+
+            RowLayout {
+              width: parent.width
+              spacing: Style.space(8)
+
+              Text {
+                Layout.fillWidth: true
+                text: "WEEK BUDGET"
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: Model.dollars(root.weekCostDollars) + " / " + Model.dollars(root.budgetDollars)
+                color: root.overBudget ? root.urgent : root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+            }
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(6)
+              radius: height / 2
+              color: Util.alpha(root.foreground, 0.14)
+
+              Rectangle {
+                width: parent.width * Math.max(0, Math.min(1, root.budgetDollars > 0 ? root.weekCostDollars / root.budgetDollars : 0))
+                height: parent.height
+                radius: parent.radius
+                gradient: Gradient {
+                  orientation: Gradient.Horizontal
+                  GradientStop { position: 0; color: root.overBudget ? Qt.lighter(root.urgent, 1.2) : Qt.lighter(root.foreground, 1.3) }
+                  GradientStop { position: 1; color: root.overBudget ? root.urgent : root.foreground }
+                }
+
+                Behavior on width { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
+              }
+            }
+          }
 
           PanelSectionHeader {
             visible: service.providers.length > 0

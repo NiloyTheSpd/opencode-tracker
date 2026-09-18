@@ -186,6 +186,12 @@ function recentPeak(days) {
   return peak
 }
 
+// Tokens on the most recent day (recentDays is chronological, zero-filled).
+function todayTokens(days) {
+  var list = (days && days.length > 0) ? days : []
+  return list.length > 0 ? dayTokens(list[list.length - 1]) : 0
+}
+
 function dayLabel(value) {
   var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""))
   if (!match) return "—"
@@ -220,6 +226,7 @@ var exportsObject = {
   weekCost: weekCost,
   recentTotal: recentTotal,
   recentPeak: recentPeak,
+  todayTokens: todayTokens,
   dayLabel: dayLabel
 }
 
