@@ -58,6 +58,27 @@ if [[ -n "${OPENCODE_DB:-}" ]]; then
   valid_override_path "$DB" || { echo "collector.sh: refused db path" >&2; exit 1; }
 fi
 
+# OpenCode v2 records per-message usage in session_message (model.providerID,
+# model.id, no tokens.total); v1 wrote message (providerID, modelID,
+# tokens.total). Same numbers, different JSON paths.
+USAGE_TABLE=message
+PROVIDER_PATH="json_extract(data,'\$.providerID')"
+MODEL_PATH="COALESCE(json_extract(data,'\$.modelID'),'?')"
+TOKENS_EXPR="json_extract(data,'\$.tokens.total')"
+EXTRA_WHERE=""
+if [[ -r $DB ]] && [[ -n $("$SQLITE3" -readonly "file:$DB?mode=ro" \
+  "SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_message'" 2>/dev/null) ]]; then
+  USAGE_TABLE=session_message
+  PROVIDER_PATH="json_extract(data,'\$.model.providerID')"
+  MODEL_PATH="COALESCE(json_extract(data,'\$.model.id'),'?')"
+  TOKENS_EXPR="(COALESCE(json_extract(data,'\$.tokens.input'),0)
+              +COALESCE(json_extract(data,'\$.tokens.output'),0)
+              +COALESCE(json_extract(data,'\$.tokens.reasoning'),0)
+              +COALESCE(json_extract(data,'\$.tokens.cache.read'),0)
+              +COALESCE(json_extract(data,'\$.tokens.cache.write'),0))"
+  EXTRA_WHERE="AND type = 'assistant'"
+fi
+
 # Whole-tree teardown. Only armed when our launcher confirms we lead our own
 # process group (setsid + COLLECTOR_PG_LEADER=1); otherwise killing group $$
 # could hit an unrelated foreground group, so direct test runs skip this.
@@ -114,29 +135,29 @@ collect_go() {
 provider_rows() {
   [[ -r $DB ]] || return
   "$SQLITE3" -readonly "file:$DB?mode=ro" \
-    "SELECT json_extract(data,'\$.providerID'),
-            ROUND(SUM(CASE WHEN time_created > $MONTH_CUTOFF THEN COALESCE(json_extract(data,'\$.tokens.total'),0) ELSE 0 END)),
-            ROUND(SUM(CASE WHEN time_created > $CUTOFF THEN COALESCE(json_extract(data,'\$.tokens.total'),0) ELSE 0 END)),
+    "SELECT $PROVIDER_PATH,
+            ROUND(SUM(CASE WHEN time_created > $MONTH_CUTOFF THEN COALESCE($TOKENS_EXPR,0) ELSE 0 END)),
+            ROUND(SUM(CASE WHEN time_created > $CUTOFF THEN COALESCE($TOKENS_EXPR,0) ELSE 0 END)),
             ROUND(SUM(CASE WHEN time_created > $MONTH_CUTOFF THEN COALESCE(json_extract(data,'\$.cost'),0) ELSE 0 END),4),
             ROUND(SUM(CASE WHEN time_created > $CUTOFF THEN COALESCE(json_extract(data,'\$.cost'),0) ELSE 0 END),4)
-     FROM message
-     WHERE json_extract(data,'\$.providerID') IS NOT NULL
-       AND json_extract(data,'\$.providerID') != ''
+     FROM $USAGE_TABLE
+     WHERE $PROVIDER_PATH IS NOT NULL
+       AND $PROVIDER_PATH != '' $EXTRA_WHERE
      GROUP BY 1 ORDER BY 5 DESC LIMIT $PROVIDER_ROW_LIMIT;" 2>/dev/null || true
 }
 
 model_rows() {
   [[ -r $DB ]] || return
   "$SQLITE3" -readonly "file:$DB?mode=ro" \
-    "SELECT json_extract(data,'\$.providerID'),
-            COALESCE(json_extract(data,'\$.modelID'),'?'),
+    "SELECT $PROVIDER_PATH,
+            $MODEL_PATH,
             date(time_created/1000,'unixepoch','localtime'),
-            ROUND(SUM(COALESCE(json_extract(data,'\$.tokens.total'),0))),
+            ROUND(SUM(COALESCE($TOKENS_EXPR,0))),
             ROUND(SUM(COALESCE(json_extract(data,'\$.cost'),0)),4)
-     FROM message
+     FROM $USAGE_TABLE
      WHERE time_created > $CUTOFF
-       AND json_extract(data,'\$.providerID') IS NOT NULL
-       AND json_extract(data,'\$.providerID') != ''
+       AND $PROVIDER_PATH IS NOT NULL
+       AND $PROVIDER_PATH != '' $EXTRA_WHERE
      GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT $MODEL_ROW_LIMIT;" 2>/dev/null || true
 }
 
@@ -198,10 +219,10 @@ if [[ -r $DB ]]; then
        SELECT date(d,'+1 day') FROM days WHERE d < date('now','localtime')
      )
      SELECT days.d,
-       ROUND(COALESCE(SUM(COALESCE(json_extract(message.data,'\$.tokens.total'),0)),0)),
-       ROUND(COALESCE(SUM(COALESCE(json_extract(message.data,'\$.cost'),0)),0),4)
-     FROM days LEFT JOIN message
-       ON date(message.time_created/1000,'unixepoch','localtime') = days.d
+       ROUND(COALESCE(SUM(COALESCE($TOKENS_EXPR,0)),0)),
+       ROUND(COALESCE(SUM(COALESCE(json_extract(data,'\$.cost'),0)),0),4)
+     FROM days LEFT JOIN $USAGE_TABLE
+       ON date($USAGE_TABLE.time_created/1000,'unixepoch','localtime') = days.d
      GROUP BY days.d ORDER BY 1;" 2>/dev/null || true)
 else
   # No database yet (fresh install): same 7-day shape, all zeros.
