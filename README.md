@@ -30,11 +30,17 @@ Removes the plugin files and takes the bar widget with it:
 
 - `sqlite3` — reads the local OpenCode usage database (`~/.local/share/opencode/opencode.db`, read-only)
 - `jq` — assembles the collector JSON output
-- `curl` — queries the OpenCode Go usage API (`https://opencode.ai/zen/go/v1/usage`) when an `opencode-go` key exists in `~/.local/share/opencode/auth.json`
+- `curl` — queries the OpenCode Go usage API (`https://opencode.ai/zen/go/v1/usage`).
 
-All three are standard on an Omarchy install. The collector never sends
-your auth key anywhere except the official OpenCode Go usage endpoint and
-never prints its contents.
+Credentials: the collector reads the active `opencode` credential from the
+`credential` table in `opencode.db` (read-only) and uses `value.access` (or
+`value.key` for plain API keys) as the Go bearer token. It falls back to an
+`opencode-go` key in `~/.local/share/opencode/auth.json` for older installs.
+An expired OAuth token is reported as `Login expired` instead of being sent;
+OpenCode refreshes it on its next run.
+
+The collector never sends the credential anywhere except the official
+OpenCode Go usage endpoint and never prints its contents.
 
 ## Files
 

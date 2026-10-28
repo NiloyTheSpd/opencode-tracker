@@ -78,10 +78,48 @@ PROVIDER_ROW_LIMIT=128
 MODEL_ROW_LIMIT=1000
 COLLECTOR_MAX_BYTES=262144
 
+# OpenCode V2 no longer writes auth.json. Device/OAuth logins live in the
+# credential table of opencode.db; read the active one read-only.
+# value.access is the OAuth token, value.key a plain API key.
+oauth_access=""
+oauth_expires=0
+if [[ -r $DB ]]; then
+  credential_json=$("$SQLITE3" -readonly -cmd ".timeout 3000" "file:$DB?mode=ro" \
+    "SELECT value FROM credential WHERE integration_id='opencode' AND active=1 ORDER BY time_updated DESC LIMIT 1;" 2>/dev/null) || credential_json=""
+  if [[ -n $credential_json ]] && "$JQ" -e 'type == "object"' >/dev/null 2>&1 <<<"$credential_json"; then
+    oauth_access=$("$JQ" -r '.access // .key // empty' <<<"$credential_json" 2>/dev/null) || oauth_access=""
+    oauth_expires=$("$JQ" -r '.expires // 0' <<<"$credential_json" 2>/dev/null) || oauth_expires=0
+    [[ $oauth_expires =~ ^[0-9]+$ ]] || oauth_expires=0
+  fi
+fi
+NOW_MS=$(( $("$DATE" +%s) * 1000 ))
+go_key=""
+go_hint=""
+if [[ -n $oauth_access ]]; then
+  if (( oauth_expires > 0 && oauth_expires < NOW_MS )); then
+    go_hint="Login expired"
+  else
+    go_key=$oauth_access
+  fi
+fi
+if [[ -z $go_key ]]; then
+  legacy_key=$("$JQ" -r '.["opencode-go"].key // empty' "$AUTH_JSON" 2>/dev/null) || legacy_key=""
+  if [[ -n $legacy_key ]]; then
+    go_key=$legacy_key
+    go_hint=""
+  fi
+fi
+
 collect_go() {
-  local k out code size
-  k=$("$JQ" -r '.["opencode-go"].key // empty' "$AUTH_JSON" 2>/dev/null) || true
-  [[ -n $k ]] || { echo '{"status":"No API key"}'; return; }
+  local k=${1:-} hint=${2:-} out code size
+  if [[ -z $k ]]; then
+    if [[ -n $hint ]]; then
+      "$JQ" -cn --arg s "$hint" '{status:$s}'
+    else
+      echo '{"status":"No API key"}'
+    fi
+    return
+  fi
   [[ -x $CURL ]] || { echo '{"status":"curl missing"}'; return; }
   tmpf=$("$MKTEMP") || { echo '{"status":"network error"}'; return; }
   hdrf=$("$MKTEMP") || { "$RM" -f "$tmpf"; echo '{"status":"network error"}'; return; }
@@ -183,7 +221,7 @@ providers=$("$JQ" -c --argjson keys "$keys_json" 'map(.hasKey = (.pid as $id | a
 providers=$("$JQ" -c --argjson models "$models_map" \
   'map(.modelList = ($models[.pid].modelList // []))' <<<"$providers")
 
-gojson=$(collect_go)
+gojson=$(collect_go "$go_key" "$go_hint")
 
 recent='[]'
 if [[ -r $DB ]]; then
